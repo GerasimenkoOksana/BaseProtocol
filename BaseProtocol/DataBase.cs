@@ -57,7 +57,7 @@ namespace BaseProtocol
         public string tag { get; set; }
     }
 
-    class TextCheckBModel
+    class TextCheckModel
     {       
         public int id { get; set; }
        
@@ -65,7 +65,7 @@ namespace BaseProtocol
       
         public string text { get; set; }
        
-        public int isChecked { get; set; }
+        public bool isChecked { get; set; }
     }
     class DataBase : DbContext
     {
@@ -73,14 +73,22 @@ namespace BaseProtocol
         public DbSet<StickModel> sticks { get; set; }
         public DbSet<FriendModel> friends { get; set; }
         public DbSet<TagModel> tags { get; set; }
-        public DbSet<TextCheckBModel> textChecks { get; set; }
+        public DbSet<TextCheckModel> textChecks { get; set; }
 
         public DataBase(string connectionStringName) : base(connectionStringName) { }
+    }
+    class StiksyDataBase
+    {
+        private DataBase sticksyDB;
+        public StiksyDataBase()
+        {
+            sticksyDB = new DataBase("Stiksy_DB");
+        }   
 
         //создание нового пользователя при регистрации - возвращает id пользователя или -1 если не удалось
-        public static int CreateUser(string login, string password)
+        public int CreateUser(string login, string password)
         {
-            DataBase sticksyDB = new DataBase("Stiksy_DB");
+            
             UserModel userBase = (from u in sticksyDB.users
                                   where u.login == login
                                   select u).FirstOrDefault();
@@ -96,9 +104,8 @@ namespace BaseProtocol
         }
 
         //создание нового стика у существующего пользователя - возвращает id стика или -1 если не удалось
-        public static int CreateStick(int idCreator)
-        {
-            DataBase sticksyDB = new DataBase("Stiksy_DB");
+        public  int CreateStick(int idCreator)
+        {            
             UserModel  creatorStick = (from u in sticksyDB.users
                                         where u.id == idCreator
                                         select u).FirstOrDefault();
@@ -117,9 +124,8 @@ namespace BaseProtocol
 
         
         //удаление стика по id
-        public static void DeleteStick(int idStick)
-        {
-            DataBase sticksyDB = new DataBase("Stiksy_DB");
+        public  void DeleteStick(int idStick)
+        {            
             StickModel stickDel = sticksyDB.sticks.Find(idStick);
             if (stickDel != null)
             {
@@ -129,9 +135,8 @@ namespace BaseProtocol
         }
 
         //формирование списка пользователей для добавления в стик другими пользователями
-        public static List<Friend> GetFriends()
-        {
-            DataBase sticksyDB = new DataBase("Stiksy_DB");
+        public  List<Friend> GetFriends()
+        {           
             List<Friend> friends = new List<Friend>();
             foreach (UserModel user in sticksyDB.users)
             {
@@ -143,7 +148,70 @@ namespace BaseProtocol
 
 
         //авторизация юзера - возвращает найденного User или null
-       
+        public  User GetUserFromLoginPassword(string login, string password)
+        {
+            
+            UserModel userModel = (from u in sticksyDB.users
+                                   where u.login == login && u.password == password
+                                   select u).FirstOrDefault();
+            if (userModel == null) return null;
+
+            User user = new User(userModel.id, userModel.login, userModel.password);
+
+            List<Stick> sticks = new List<Stick>();
+            List<StickModel> stickModels = (from s in sticksyDB.sticks
+                                            where s.idCreator == user.id
+                                            select s).ToList();
+
+            foreach (StickModel stickModel in stickModels)
+            {
+                Stick stick = new Stick(stickModel.id, user.id);
+                stick.title = stickModel.title;
+                stick.date = stickModel.date;
+                stick.color = stickModel.color;
+
+                List<string> tagsStick = new List<string>();
+                List<TagModel> tagModels = (from t in sticksyDB.tags
+                                            where t.idStick == stick.id
+                                            select t).ToList();
+                foreach (TagModel tagModel in tagModels)
+                {
+                    tagsStick.Add(tagModel.tag);
+                }
+                stick.tags = tagsStick;
+
+                List<Friend> friendsStick = new List<Friend>();
+                List<FriendModel> friendModels = (from f in sticksyDB.friends
+                                                  where f.idStick == stick.id
+                                                  select f).ToList();
+                foreach (FriendModel friendModel in friendModels)
+                {                    
+                    try
+                    {
+                        string loginFriend = (from u in sticksyDB.users
+                                              where u.id == friendModel.id
+                                              select u.login).First();
+                        friendsStick.Add(new Friend(friendModel.id, loginFriend));
+                    }
+                    catch { continue; }   
+                }
+                stick.Visiters = friendsStick;
+
+                List<TextCheck> contentStick = new List<TextCheck>();
+                List<TextCheckModel> textCheckModels = (from t in sticksyDB.textChecks
+                                                        where t.idStick == stick.id
+                                                        select t).ToList();
+                foreach (TextCheckModel textCheckModel in textCheckModels)
+                {
+                    TextCheck textCheck = new TextCheck() { id = textCheckModel.id, text = textCheckModel.text, isChecked = textCheckModel.isChecked };
+                    contentStick.Add(textCheck);
+                }
+                stick.content = contentStick;
+                sticks.Add(stick);
+            }
+            return user;
+        }
+
 
 
 
