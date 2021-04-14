@@ -218,7 +218,7 @@ namespace BaseProtocol
                 stick.date = stickModel.date;
                 stick.color = stickModel.color;                               
                 stick.tags = GetTagsByIdStick(stick.id);                
-                stick.Visiters = GetFriendsByIdStick(stick.id);    
+                stick.visiters = GetFriendsByIdStick(stick.id);    
                 stick.content = GetContentByIdStick(stick.id);
                 sticks.Add(stick);
             }
@@ -297,7 +297,7 @@ namespace BaseProtocol
             stickBase.date = stick.date;
             stickBase.color = stick.color;
             UpdateTags(stick.id, stick.tags);
-            UpdateFriends(stick.id, stick.Visiters);
+            UpdateFriends(stick.id, stick.visiters);
             UpdateContent(stick.id, stick.content);
             return true;
         }
