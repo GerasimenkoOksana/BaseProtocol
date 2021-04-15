@@ -97,7 +97,7 @@ namespace BaseProtocol
 
         public DataBase(string connectionStringName) : base(connectionStringName) { }
     }
-    class StiksyDataBase
+    public class StiksyDataBase
     {
         private DataBase sticksyDB;
         public StiksyDataBase()
