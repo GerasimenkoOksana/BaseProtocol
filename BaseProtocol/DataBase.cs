@@ -26,6 +26,11 @@ namespace BaseProtocol
         public int id { get; set; }  
         public int idUser { get; set; }     
         public int idStick { get; set; }
+        public FriendModel(int idUser, int idStick)
+        {
+            this.idUser = idUser;
+            this.idStick = idStick;
+        }
     }
 
     class StickModel
@@ -144,8 +149,12 @@ namespace BaseProtocol
             StickModel stickDel = sticksyDB.sticks.Find(idStick);
             if (stickDel != null)
             {
-                sticksyDB.sticks.Remove(stickDel);
-                sticksyDB.SaveChanges();
+                try
+                {
+                    sticksyDB.sticks.Remove(stickDel);
+                    sticksyDB.SaveChanges();
+                }
+                catch { }               
             }
 
             var tagsDel = from t in sticksyDB.tags
@@ -153,7 +162,11 @@ namespace BaseProtocol
                           select t;            
             foreach (var tag in tagsDel)
             {
-                sticksyDB.tags.Remove(tag);
+                try
+                {
+                    sticksyDB.tags.Remove(tag);
+                }
+                catch { }                
             }           
 
             var friendsDel = from f in sticksyDB.friends
@@ -161,7 +174,11 @@ namespace BaseProtocol
                              select f;
             foreach (var friend in friendsDel)
             {
-                sticksyDB.friends.Remove(friend);
+                try
+                {
+                    sticksyDB.friends.Remove(friend);
+                }
+                catch { }                
             }
 
             var checkboxContentDel = from c in sticksyDB.checkboxContent
@@ -169,7 +186,11 @@ namespace BaseProtocol
                                      select c;
             foreach (var checkbox in checkboxContentDel)
             {
-                sticksyDB.checkboxContent.Remove(checkbox);
+                try
+                {
+                    sticksyDB.checkboxContent.Remove(checkbox);
+                }
+                catch { }
             }
 
             var textContentDel = from t in sticksyDB.textContent
@@ -177,9 +198,12 @@ namespace BaseProtocol
                                  select t;
             foreach (var text in textContentDel)
             {
-                sticksyDB.textContent.Remove(text);
+                try
+                {
+                    sticksyDB.textContent.Remove(text);
+                }
+                catch { }
             }
-
             sticksyDB.SaveChanges();
         }
 
@@ -305,6 +329,7 @@ namespace BaseProtocol
         private void UpdateTags(int idStick, List<string> tags)
         {
             List<string> tagsBase = GetTagsByIdStick(idStick);
+            if (tagsBase == tags) return;
             foreach (string tag in tags)
             {
                 if (!tagsBase.Contains(tag))
@@ -329,12 +354,115 @@ namespace BaseProtocol
 
         private void UpdateFriends (int idStick, List<Friend> friends)
         {
-            //To Do
+            List<Friend> friendsBase = GetFriendsByIdStick(idStick);
+            if (friendsBase == friends) return;
+            foreach (Friend friend in friends)
+            {
+                if (!friendsBase.Contains(friend))
+                    sticksyDB.friends.Add(new FriendModel(friend.id, idStick));
+            }
+            foreach (Friend friendBase in friendsBase)
+            {
+                if(!friends.Contains(friendBase))
+                {
+                    FriendModel fm = (from f in sticksyDB.friends
+                                      where f.idUser == friendBase.id && f.idStick == idStick
+                                      select f).FirstOrDefault();
+                    try
+                    {
+                        sticksyDB.friends.Remove(fm);
+                    }
+                    catch { }
+                }
+            }
+            sticksyDB.SaveChanges();
         }
 
         private void UpdateContent(int idStick, List<IStickContent> content)
         {
-            //To Do
+            List<IStickContent> contentBase = GetContentByIdStick(idStick);
+            if (contentBase == content) return;
+            foreach (IStickContent elemContent in content)
+            {
+                if (elemContent is CheckboxContent)
+                {
+                    int id = (elemContent as CheckboxContent).id;
+                    if (id == -1)
+                    {
+                        sticksyDB.checkboxContent.Add(new CheckboxContentModel() { idStick = idStick, text = (elemContent as CheckboxContent).text, isChecked = (elemContent as CheckboxContent).isChecked });                        
+                    }
+                    else
+                    {
+                        CheckboxContentModel ch = sticksyDB.checkboxContent.Find(id);
+                        if (ch != null && ch.idStick == idStick)
+                        {
+                            if (ch.text != (elemContent as CheckboxContent).text)
+                                ch.text = (elemContent as CheckboxContent).text;
+                            if (ch.isChecked != (elemContent as CheckboxContent).isChecked)
+                                ch.isChecked = (elemContent as CheckboxContent).isChecked;
+                        }
+                    }                    
+                }
+                else if (elemContent is TextContent)
+                {
+                    int id = (elemContent as TextContent).id;
+                    if ( id == -1)
+                    {
+                        sticksyDB.textContent.Add(new TextContentModel() { idStick = idStick, text = (elemContent as TextContent).text });                       
+                    }
+                    else
+                    {
+                        TextContentModel tc = sticksyDB.textContent.Find(id);
+                        if (tc != null && tc.idStick == idStick && tc.text != (elemContent as TextContent).text)
+                        {
+                            tc.text = (elemContent as TextContent).text;                            
+                        }
+                    }
+                }
+                sticksyDB.SaveChanges();
+            }           
+            foreach (IStickContent elemBase in contentBase)
+            {
+                if (!content.Contains(elemBase))
+                {
+                    if (elemBase is TextContent)
+                    {
+                        int id = (elemBase as TextContent).id;
+                        TextContentModel tc = sticksyDB.textContent.Find(id);
+                        if (tc !=null)
+                        {
+                            try
+                            {
+                                sticksyDB.textContent.Remove(tc);
+                            }
+                            catch { }
+                        }     
+                    }
+                    else if (elemBase is CheckboxContent)
+                    {
+                        int id = (elemBase as CheckboxContent).id;
+                        CheckboxContentModel ch = sticksyDB.checkboxContent.Find(id);
+                        if (ch != null)
+                        {
+                            try
+                            {
+                                sticksyDB.checkboxContent.Remove(ch);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+        }
+
+       
+        public bool UpdateUser(User user)
+        {
+            foreach (Stick stick in user.sticks)
+            {
+                if (!UpdateStick(stick)) return false;
+            }
+            return true;
         }
     }
 
